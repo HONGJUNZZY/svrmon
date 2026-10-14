@@ -192,6 +192,19 @@ hub 内置告警引擎，判定逻辑（智能模式，正常关机不打扰）�
 | WS /agent | agent 接入（?token=） |
 | WS /ws | 浏览器实时流（init/snapshot/join/offline 消息） |
 
+## 版本与迭代
+
+当前版本 **v0.1.0**（详见 [CHANGELOG.md](CHANGELOG.md)）。发版流程：
+
+1. 改代码 → `deploy/build.ps1` 构建验证（含前端嵌入与 Linux/Windows 双平台交叉编译）
+2. 同步三处版本号：`internal/hub/hub.go` 的 `HubVersion`、`internal/agent/client.go` 的 `Version`、`web/package.json` 的 `version`
+3. 更新 `CHANGELOG.md`
+4. 提交并推送；服务器上替换二进制后 `systemctl restart hub|agent`（Docker 部署则重建容器；数据库结构变更由 hub 启动时自动迁移）
+
+```bash
+git add -A && git commit -m "v0.1.1: ..." && git push
+```
+
 ## 安全建议
 
 - 仅在**局域网**使用；不要把 hub 端口暴露到公网。需要远程访问请走 VPN 或加反向代理 + HTTPS。
