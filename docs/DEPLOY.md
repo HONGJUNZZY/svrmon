@@ -93,36 +93,107 @@ sudo apt-get install -y ipmitool openipmi   # IPMI 采集（需主板带 BMC）
 
 ### 2.5 Windows 11 安装（Hub 或 Agent 均可）
 
-Windows 无 systemd，用 **NSSM** 注册为服务（推荐，支持崩溃自动拉起与优雅停止）：
+Windows 无 systemd，提供三种方式，**方式 A 最省事**。
+
+#### 方式 A：一键脚本（推荐）
 
 ```powershell
-# 1) 建目录并放入二进制与配置
-mkdir D:\svrmon\logs
-copy svrmon-agent.exe D:\svrmon\
+# 以【管理员身份】打开 PowerShell，进入 deploy 目录
+cd deploy
+.\install-agent-windows.ps1 -HubUrl ws://192.168.1.10:8080/agent -Token <agent token> -Name win-gpu01
+```
 
-# 2) 写配置（内容参考 deploy\agent.config.example.json，至少填 hubUrl / token / name）
-notepad D:\svrmon\agent.config.json
+脚本自动完成：建目录 → 复制二进制 → 写配置 → 注册服务 → 启动 → 校验（打印进程状态与日志尾部）。
 
-# 3) 注册服务
-nssm install svrmon-agent D:\svrmon\svrmon-agent.exe
-nssm set svrmon-agent AppDirectory D:\svrmon
-nssm set svrmon-agent AppParameters "-config D:\svrmon\agent.config.json -log D:\svrmon\logs\agent.log"
+| 参数 | 说明 |
+|---|---|
+| `-HubUrl` / `-Token` | **必填**；token 在 hub 的 `hub.config.json` 的 `agentTokens` 里 |
+| `-Name` | 网页显示名，默认计算机名 |
+| `-InstallDir` | 安装目录，默认 `C:\ProgramData\svrmon` |
+| `-BinaryPath` | 手动指定 `svrmon-agent.exe`（默认脚本同目录或 `deploy\out\`） |
+| `-ServiceType Auto\|Nssm\|Task` | 服务方式，默认 `Auto`（有 NSSM 用 NSSM，否则任务计划） |
+| `-NssmPath` | 手动指定 `nssm.exe` 路径 |
+| `-NoService` | 只放文件与配置，不注册服务（**无需管理员**，便于先试跑） |
+| `-Uninstall [-Purge]` | 停止并移除服务/任务；`-Purge` 连目录一起删 |
+
+脚本会优先用 **NSSM**（若 `nssm` 在 PATH 或常见安装位置）；没有则退回**系统自带任务计划**（SYSTEM 账户、开机自启、
+崩溃后 1 分钟自动重启）。两者差异：
+
+| | NSSM 服务 | 任务计划（自带） |
+|---|---|---|
+| 依赖 | 需下载 NSSM | 无（Windows 原生） |
+| 自动重启 | ✅ | ✅（RestartCount 设置） |
+| 停止方式 | **Ctrl+C 优雅停止** → agent 发告别帧，不触发告警 | 强杀进程 → 维护性停止超过离线观察期（默认 60s）会收到一封"失联"告警 |
+
+#### 方式 B：手动注册服务（NSSM）
+
+先获取 NSSM（二选一）：
+
+```powershell
+winget install --id NSSM.NSSM --silent      # 方式一：winget（Win11 自带）
+# 方式二：从 https://nssm.cc/download 下载后解压，把 win64\nssm.exe 放到 C:\nssm\
+```
+
+```powershell
+# 1) 建目录并放入二进制
+mkdir C:\ProgramData\svrmon\logs
+copy svrmon-agent.exe C:\ProgramData\svrmon\
+
+# 2) 写配置（可直接用一键脚本 -NoService 生成，或参考 deploy\agent.config.example.json）
+notepad C:\ProgramData\svrmon\agent.config.json
+
+# 3) 注册并启动服务
+nssm install svrmon-agent C:\ProgramData\svrmon\svrmon-agent.exe
+nssm set svrmon-agent AppDirectory C:\ProgramData\svrmon
+nssm set svrmon-agent AppParameters "-config C:\ProgramData\svrmon\agent.config.json -log C:\ProgramData\svrmon\logs\agent.log"
 nssm set svrmon-agent Start SERVICE_AUTO_START
 nssm start svrmon-agent
 ```
 
-也可用系统自带任务计划（无自动拉起）：
+#### 方式 C：手动注册任务计划（系统自带，无需第三方）
 
 ```powershell
-schtasks /create /tn svrmon-agent /sc onstart /ru SYSTEM ^
-  /tr "D:\svrmon\svrmon-agent.exe -config D:\svrmon\agent.config.json -log D:\svrmon\logs\agent.log"
+$exe = 'C:\ProgramData\svrmon\svrmon-agent.exe'
+$arg = '-config C:\ProgramData\svrmon\agent.config.json -log C:\ProgramData\svrmon\logs\agent.log'
+Register-ScheduledTask -TaskName svrmon-agent `
+  -Action (New-ScheduledTaskAction -Execute $exe -Argument $arg -WorkingDirectory 'C:\ProgramData\svrmon') `
+  -Trigger (New-ScheduledTaskTrigger -AtStartup) `
+  -Principal (New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest) `
+  -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+      -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Seconds 0)) `
+  -Description 'svrmon monitoring agent'
+Start-ScheduledTask -TaskName svrmon-agent
 ```
 
-**Windows 注意**：
-- **需管理员权限运行**（WMI 硬件信息、系统事件日志读取）
-- NSSM 停止服务时发送 Ctrl+C，agent 会发"告别帧"，因此正常停止**不会**触发异常关机告警
-- 事件日志采集用 `Get-WinEvent`（System 通道 错误/严重级），无需额外配置
-- 异常关机检测依据事件 41/6008，行为与 Ubuntu 端一致
+#### 先试跑再注册（排查问题最有效）
+
+```powershell
+# 只部署文件与配置（无需管理员）
+.\install-agent-windows.ps1 -HubUrl ws://192.168.1.10:8080/agent -Token <token> -NoService
+
+# 前台运行观察输出，Ctrl+C 退出
+& "$env:ProgramData\svrmon\svrmon-agent.exe" -config "$env:ProgramData\svrmon\agent.config.json" -log "$env:ProgramData\svrmon\logs\agent.log"
+```
+
+看到 `agent: connected to <hub>` 且 hub 页面出现该机器后，再以管理员重跑脚本注册服务。
+
+#### 验证 / 停止 / 卸载
+
+```powershell
+Get-Process svrmon-agent                                    # 进程是否在跑
+Get-Content "$env:ProgramData\svrmon\logs\agent.log" -Tail 50 -Wait   # 日志
+Get-ScheduledTask svrmon-agent | Get-ScheduledTaskInfo      # 任务计划方式：状态与上次结果
+.\install-agent-windows.ps1 -Uninstall                      # 停止并移除服务/任务（保留配置与日志）
+.\install-agent-windows.ps1 -Uninstall -Purge                # 连目录一起删除
+```
+
+#### 注意事项
+
+- **注册服务需管理员权限**（脚本会检查并提示）；NSSM/任务计划均以 SYSTEM 身份运行，满足 WMI 硬件信息与事件日志读取
+- agent **只做出站连接**，Windows 防火墙无需开放入站端口，只需能访问 hub 的 8080
+- 事件日志采集用 `Get-WinEvent`（System 通道 错误/严重级）；异常关机检测依据事件 **41 / 6008**，与 Ubuntu 端行为一致
+- 平台限制：Windows 上 **CPU 温度、磁盘繁忙度 %、系统负载**无数据源，显示为空或 0（其余指标与 Ubuntu 一致）
+- 若用测试名注册过，该名称会留在 hub 的内存列表里（显示离线），重启 hub 即清除；历史数据按名字保存在数据库中
 
 ---
 
@@ -139,6 +210,8 @@ schtasks /create /tn svrmon-agent /sc onstart /ru SYSTEM ^
 
 - **Hub**：`listen`（端口）、`agentTokens`、`uiToken`（网页访问令牌）、`retentionDays`、`storeEverySec`、`alerts`（邮件/Webhook 告警）
 - **Agent**：`hubUrl`、`token`、`name`、`intervalMs`、`gpu.intervalSec`、`ipmi.sensorSec`、`logs.intervalSec`、`hw.intervalMin`
+
+> `logs.path` 只在 Ubuntu 生效（指向 journalctl）；Windows 上自动改用系统事件日志，该字段可忽略。
 
 > 日志文件按天轮转、**保留 7 天**自动清理；指标历史、每盘明细、严重日志同样 7 天滚动。
 
@@ -205,13 +278,26 @@ docker exec svrmon-hub ls -l /data # 确认配置与数据库仍在
 
 ### 4.5 Windows 升级
 
+**推荐：只替换二进制，保留原配置**（配置文件里可能有你调过的采集间隔）
+
 ```powershell
-nssm stop svrmon-agent
-copy /Y svrmon-agent.exe D:\svrmon\agent-new.exe
-move /Y D:\svrmon\svrmon-agent.exe D:\svrmon\svrmon-agent.bak
-move /Y D:\svrmon\agent-new.exe D:\svrmon\svrmon-agent.exe
-nssm start svrmon-agent
+# 以管理员身份运行
+Stop-Service svrmon-agent            # NSSM 方式：nssm stop svrmon-agent
+Stop-ScheduledTask -TaskName svrmon-agent   # 任务计划方式（二选一，按你的部署方式执行）
+Copy-Item C:\ProgramData\svrmon\svrmon-agent.exe C:\ProgramData\svrmon\svrmon-agent.bak -Force
+Copy-Item .\svrmon-agent.exe C:\ProgramData\svrmon\svrmon-agent.exe -Force
+Start-Service svrmon-agent           # NSSM 方式：nssm start svrmon-agent
+Start-ScheduledTask -TaskName svrmon-agent  # 任务计划方式
 ```
+
+**或者用脚本重装**（会按参数重写配置，适合配置无需保留或想顺带改参数时）
+
+```powershell
+.\install-agent-windows.ps1 -Uninstall            # 停止并移除（保留目录）
+.\install-agent-windows.ps1 -HubUrl ws://<hub>:8080/agent -Token <token> -Name win-gpu01
+```
+
+验证：`Get-Process svrmon-agent` 有进程，且 hub 页面该机器的 **agent 版本** 已变为新版本号。
 
 ### 4.6 回滚
 
@@ -220,6 +306,7 @@ nssm start svrmon-agent
 | Hub（脚本升级） | 按脚本结束时打印的命令：停服务 → 从 `/opt/svrmon/backup/<时间戳>/` 拷回 `hub` 与 `svrmon.db*` → 启动 |
 | Hub（手动升级） | `systemctl stop hub && cp /opt/svrmon/hub.bak /opt/svrmon/hub && cp /opt/svrmon/svrmon.db.bak /opt/svrmon/svrmon.db && systemctl start hub` |
 | Agent | `systemctl stop agent && cp /opt/svrmon/agent.bak /opt/svrmon/agent && systemctl start agent` |
+| Windows | 停服务/任务 → `Copy-Item C:\ProgramData\svrmon\svrmon-agent.bak C:\ProgramData\svrmon\svrmon-agent.exe -Force` → 启动 |
 | Docker | 换回旧二进制重建容器（数据卷不动） |
 
 ### 4.7 数据库结构与兼容性
@@ -232,6 +319,8 @@ nssm start svrmon-agent
 ---
 
 ## 5. 日常运维
+
+### 5.1 Ubuntu
 
 ```bash
 # 服务管理
@@ -255,7 +344,32 @@ systemctl restart agent
 # 在 hub.config.json 设置 "uiToken": "xxx"，重启后访问 http://<hub>:8080/?token=xxx
 ```
 
-**卸载**：
+### 5.2 Windows 11
+
+```powershell
+# 进程与服务状态
+Get-Process svrmon-agent
+nssm status svrmon-agent                              # NSSM 方式
+Get-ScheduledTask svrmon-agent | Get-ScheduledTaskInfo # 任务计划方式
+
+# 日志（按天轮转，保留 7 天；agent-YYYYMMDD.log 为主日志）
+Get-Content "$env:ProgramData\svrmon\logs\agent.log" -Tail 50 -Wait
+
+# 改配置后重启
+notepad "$env:ProgramData\svrmon\agent.config.json"
+nssm restart svrmon-agent                             # 或
+Stop-ScheduledTask svrmon-agent; Start-ScheduledTask svrmon-agent
+
+# 停止并移除
+.\deploy\install-agent-windows.ps1 -Uninstall          # 保留配置与日志
+.\deploy\install-agent-windows.ps1 -Uninstall -Purge   # 连目录一起删
+```
+
+> 注意：任务计划方式的停止是强制结束进程，**不会**发送告别帧。若维护性停止超过 hub 的离线观察期
+> （默认 60 秒），会收到一封"失联"告警邮件——可忽略，或临时把 hub 配置的 `offlineGraceSec` 调大。
+> 需要优雅停止则改用 NSSM 方式（`nssm stop` 会先发 Ctrl+C）。
+
+**卸载（Ubuntu）**：
 
 ```bash
 systemctl disable --now hub agent

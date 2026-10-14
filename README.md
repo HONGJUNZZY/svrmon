@@ -109,6 +109,14 @@ sudo ./install-agent.sh svrmon-agent-linux-amd64 ws://<hub IP>:8080/agent <agent
 - IPMI 采集：`sudo apt-get install ipmitool openipmi`（需主板带 BMC；无 BMC 自动跳过）
 - GPU 采集：NVIDIA 驱动自带 nvidia-smi 即可
 
+**Windows 11 被监控机**：把 `svrmon-agent.exe` 拷到 `deploy\` 后，以管理员身份运行
+
+```powershell
+.\install-agent-windows.ps1 -HubUrl ws://<hub IP>:8080/agent -Token <agent token> -Name <显示名>
+```
+
+一键完成目录创建、写配置、注册服务（NSSM 优先，否则系统任务计划）、启动与校验；支持 `-NoService` 先试跑、`-Uninstall` 卸载。详见 [docs/DEPLOY.md §2.5](docs/DEPLOY.md)。
+
 ### 4. 完成
 
 打开 hub 页面即可看到所有服务器。手动配置时参数见 `deploy/*.config.example.json`，服务管理 `systemctl status hub|agent`，日志在 `/var/log/svrmon/`（按天一个文件，自动保留 7 天，如 `tail -f /var/log/svrmon/agent-*.log`）。
@@ -229,9 +237,10 @@ Docker 部署则替换二进制后 `docker compose up -d --build`；数据库结
 
 - **IPMI 显示"不可用"**：未装 ipmitool（`apt-get install ipmitool`）、主板无 BMC、或 `/dev/ipmi0` 权限不足（agent 以 root 运行，或将用户加入 ipmi 组并 `modprobe ipmi_devintf`）。
 - **GPU 不显示**：确认 `nvidia-smi` 命令可用；部分虚拟化环境需 `nvidia-smi` 可见设备。
-- **Windows 上磁盘 IO 为空**：本项目面向 Ubuntu 服务器；Windows 的磁盘计数器命名不同，属已知平台差异。
+- **Windows 上部分指标为空**：CPU 温度、磁盘繁忙度 %、系统负载在 Windows 上无数据源（显示空或 0）；磁盘读写速率/IOPS、每盘明细、GPU、事件日志、硬件配置均正常。
+- **Windows 服务注册**：用 `deploy\install-agent-windows.ps1`（管理员运行）一键完成；停止任务计划属于强杀进程，维护性停机超过 60 秒会收到一封"失联"告警，需优雅停止请用 NSSM 方式。
 - **历史图表为空**：hub 每 storeEverySec 秒落一次盘，刚部署需等待片刻；确认服务器系统时间正常。
-- **agent 反复重连**：检查 token 与 hubUrl；`tail -f /var/log/svrmon/agent-*.log` 看具体报错。
+- **agent 反复重连**：检查 token 与 hubUrl；`tail -f /var/log/svrmon/agent-*.log`（Ubuntu）或 `Get-Content "$env:ProgramData\svrmon\logs\agent.log" -Wait`（Windows）看具体报错。
 
 ## 扩展方向
 
