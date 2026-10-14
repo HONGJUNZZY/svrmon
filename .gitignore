@@ -14,6 +14,7 @@ web/dist/
 run/
 *.exe~
 
-# 嵌入的前端产物（占位页由 build.ps1 维护）
+# 嵌入的前端产物：只跟踪 .gitkeep（保证 go:embed 目录存在），
+# index.html 与 assets/ 都是构建产物，由 deploy/build.ps1 生成，不入库
 cmd/hub/assets/dist/*
-!cmd/hub/assets/dist/index.html
+!cmd/hub/assets/dist/.gitkeep

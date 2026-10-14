@@ -49,20 +49,37 @@ if (-not $SkipWeb) {
     } finally {
         Pop-Location
     }
-
-    Write-Host "==> 嵌入前端到 hub"
-    $assets = Join-Path $root 'cmd\hub\assets\dist'
-    Remove-Item -Recurse -Force $assets -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force $assets | Out-Null
-    Copy-Item -Recurse -Force (Join-Path $root 'web\dist\*') $assets
 }
 
-# -SkipWeb 且从未构建前端时，放置占位页以保证 go:embed 不失败
+# ---------- 嵌入前端 ----------
+# 规则：内嵌的 index.html 必须与其引用的 assets 同时存在，否则页面白屏。
+#   - 正常构建：重建前端后整目录复制
+#   - -SkipWeb：若 web\dist 已存在则直接复用；否则写占位页（仓库里只跟踪占位页）
 $assetsDist = Join-Path $root 'cmd\hub\assets\dist'
-if (-not (Test-Path (Join-Path $assetsDist 'index.html'))) {
+$placeholder = '<!doctype html><html><head><meta charset="utf-8"><title>svrmon</title></head><body style="background:#0b0f14;color:#d5dee8;font-family:sans-serif;padding:2rem"><h1>svrmon hub</h1><p>前端尚未构建：请运行 deploy/build.ps1（不带 -SkipWeb）。</p></body></html>'
+
+if (-not $SkipWeb) {
+    Write-Host "==> 嵌入前端到 hub"
+    Remove-Item -Recurse -Force $assetsDist -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $assetsDist | Out-Null
-    Set-Content -Path (Join-Path $assetsDist 'index.html') -Value '<!doctype html><html><head><meta charset="utf-8"><title>svrmon</title></head><body style="background:#0b0f14;color:#d5dee8;font-family:sans-serif;padding:2rem"><h1>svrmon hub</h1><p>前端尚未构建：请运行 deploy/build.ps1（不带 -SkipWeb）。</p></body></html>'
-    Write-Host "==> 已放置前端占位页（提示：构建时请去掉 -SkipWeb）"
+    Copy-Item -Recurse -Force (Join-Path $root 'web\dist\*') $assetsDist
+} else {
+    $webDist = Join-Path $root 'web\dist'
+    if (Test-Path (Join-Path $webDist 'index.html')) {
+        Write-Host "==> -SkipWeb：复用已构建的 web\dist"
+        Remove-Item -Recurse -Force $assetsDist -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force $assetsDist | Out-Null
+        Copy-Item -Recurse -Force (Join-Path $webDist '*') $assetsDist
+    } else {
+        New-Item -ItemType Directory -Force $assetsDist | Out-Null
+        Set-Content -Path (Join-Path $assetsDist 'index.html') -Value $placeholder
+        Write-Host "==> -SkipWeb：无 web\dist，已放置前端占位页（正式构建请去掉 -SkipWeb）"
+    }
+}
+
+# 安全网：确保 go:embed 有可嵌入内容，且不会内嵌"引用了不存在资源"的 index.html
+if (-not (Test-Path (Join-Path $assetsDist 'index.html'))) {
+    Set-Content -Path (Join-Path $assetsDist 'index.html') -Value $placeholder
 }
 
 # ---------- 二进制 ----------
