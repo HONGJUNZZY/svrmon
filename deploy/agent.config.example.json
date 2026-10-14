@@ -1,0 +1,8 @@
+{
+  "hubUrl": "ws://192.168.1.10:8080/agent",
+  "token": "与-hub-配置里-agentTokens-一致",
+  "name": "",
+  "intervalMs": 2000,
+  "gpu": { "enable": true, "path": "nvidia-smi", "intervalSec": 5 },
+  "ipmi": { "enable": true, "path": "ipmitool", "sensorSec": 30, "selSec": 60 }
+}

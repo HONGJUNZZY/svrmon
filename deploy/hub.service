@@ -1,0 +1,24 @@
+[Unit]
+Description=svrmon hub (central monitoring server)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/svrmon
+ExecStart=/opt/svrmon/hub -config /opt/svrmon/hub.config.json -log /var/log/svrmon/hub.log
+Restart=always
+RestartSec=3
+User=svrmon
+Group=svrmon
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/svrmon /var/log/svrmon
+ProtectHome=true
+# 日志按天写入 /var/log/svrmon/hub-YYYYMMDD.log，仅保留 7 天，过期自动删除
+LogsDirectory=svrmon
+# 如需绑定 80/443 端口，取消下一行注释（无需 root）：
+# AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

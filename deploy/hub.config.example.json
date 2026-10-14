@@ -1,0 +1,27 @@
+{
+  "listen": ":8080",
+  "dbPath": "/opt/svrmon/svrmon.db",
+  "retentionDays": 7,
+  "storeEverySec": 10,
+  "agentTokens": ["把-hub-首次启动生成的-token-复制到这里-可配多个"],
+  "uiToken": "",
+  "logFile": "",
+  "logRetentionDays": 7,
+  "alerts": {
+    "enabled": true,
+    "offlineGraceSec": 60,
+    "cooldownMin": 30,
+    "notifyOnCleanShutdown": false,
+    "smtp": {
+      "host": "smtp.qq.com",
+      "port": 465,
+      "security": "auto",
+      "username": "你的QQ号@qq.com",
+      "password": "QQ邮箱设置里生成的授权码（不是QQ密码）",
+      "from": "svrmon 告警 <你的QQ号@qq.com>",
+      "to": ["接收告警的邮箱@xx.com"]
+    },
+    "webhook": "",
+    "webhookStyle": "json"
+  }
+}

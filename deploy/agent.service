@@ -1,0 +1,20 @@
+[Unit]
+Description=svrmon agent (local metrics collector)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/svrmon
+ExecStart=/opt/svrmon/agent -config /opt/svrmon/agent.config.json -log /var/log/svrmon/agent.log
+Restart=always
+RestartSec=3
+# 本地 IPMI 访问 /dev/ipmi0 需要 root（或把 User 改为专用用户并加入 ipmi 组）。
+# 读取 NVIDIA GPU 需要 nvidia-smi 在 PATH 中（随驱动安装）。
+User=root
+NoNewPrivileges=true
+# 日志按天写入 /var/log/svrmon/agent-YYYYMMDD.log，仅保留 7 天，过期自动删除
+LogsDirectory=svrmon
+
+[Install]
+WantedBy=multi-user.target
