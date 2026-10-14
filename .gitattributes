@@ -1,8 +1,11 @@
-# 统一换行符：源码 LF，Windows 脚本 CRLF
-* text=auto
+# 换行符策略：仓库内一律 LF（保证 Linux 上克隆即可运行），
+# 仅 Windows 批处理/脚本在检出时用 CRLF。
+* text=auto eol=lf
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
 *.bat text eol=crlf
+# 二进制文件不做任何转换
 *.png binary
 *.jpg binary
+*.ico binary
 *.db binary
