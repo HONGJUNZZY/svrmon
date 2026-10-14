@@ -10,9 +10,18 @@
 
 ---
 
-## 未发布
+## v0.2.0 — 2026-10-14
+
+### 性能优化（网页加载）
+- **主脚本从 1,167KB 降至 40KB（↓96.6%）**：总览/详情/历史按需加载（路由懒加载），ECharts 按需引入
+  （仅折线图/坐标/提示/图例/Canvas 渲染），构建时生成 gzip 静态资源。
+- Hub 静态文件服务增强（[internal/hub/static.go](internal/hub/static.go)）：内存缓存 + 预构建 gzip 压缩传输
+  + ETag 条件请求 + 带内容指纹资源一年 immutable 缓存 + HTML no-cache 重校验。
+- 详情页只挂载当前标签（`v-show` → `v-if`），历史数据延迟查询，关闭实时曲线动画，ECharts `lazyUpdate`。
 
 ### 修复
+- **启用 UI token 后静态资源与 WebSocket 无法认证**：验证 `?token=` 链接后设置 HttpOnly、SameSite=Strict
+  的会话 cookie，使静态资源、REST 与 WebSocket 正常通过认证（[internal/hub/api.go](internal/hub/api.go)）。
 - **新建克隆后无法编译 / 前端白屏**：
   - `cmd/hub/assets/dist/index.html` 之前跟踪的是**构建产物**（引用 `/assets/index-*.js`），而被引用的 JS/CSS 不入库
     → 新克隆直接 `go build` 会内嵌一个指向不存在资源的页面（白屏）。现在仓库只跟踪 `.gitkeep`，
@@ -24,6 +33,8 @@
 - 已实测：新克隆（仅 `.gitkeep`）可直接 `go build` 通过；无前端二进制启动后页面返回 200 提示页、API 正常。
 
 ### 新增
+- 新增静态资源 HTTP 回归测试（[internal/hub/static_test.go](internal/hub/static_test.go)）
+  与 [docs/PERFORMANCE.md](docs/PERFORMANCE.md) 构建、缓存与性能说明。
 - **Windows 一键安装脚本** `deploy/install-agent-windows.ps1`：自动完成安装目录创建、二进制复制、配置写入、服务注册
   （**NSSM 优先**，缺失时退回**系统自带任务计划**，含 SYSTEM 账户、开机自启、崩溃 1 分钟自动重启）、启动与校验。
   支持 `-NoService`（无需管理员，先前台试跑）、`-ServiceType`、`-NssmPath`、`-Uninstall [-Purge]`。

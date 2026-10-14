@@ -22,7 +22,7 @@ import (
 )
 
 // Version is the agent build version.
-const Version = "0.1.1"
+const Version = "0.2.0"
 
 // GPUConfig controls the NVIDIA collector.
 type GPUConfig struct {

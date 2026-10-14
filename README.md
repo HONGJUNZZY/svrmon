@@ -123,6 +123,8 @@ sudo ./install-agent.sh svrmon-agent-linux-amd64 ws://<hub IP>:8080/agent <agent
 
 ## 配置说明
 
+网页采用按需加载、构建时 gzip 和内容指纹缓存；构建与验证说明见 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。升级网页只需重新构建并替换 Hub，Agent 无需改动。
+
 **hub.config.json**
 
 | 字段 | 默认 | 说明 |
@@ -204,7 +206,7 @@ hub 内置告警引擎，判定逻辑（智能模式，正常关机不打扰）�
 
 ## 版本与迭代
 
-当前版本 **v0.1.1**（版本历史见 [CHANGELOG.md](CHANGELOG.md)，**安装/升级/回滚完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)**）。
+当前版本 **v0.2.0**（版本历史见 [CHANGELOG.md](CHANGELOG.md)，**安装/升级/回滚完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)**）。
 
 发版四步：
 

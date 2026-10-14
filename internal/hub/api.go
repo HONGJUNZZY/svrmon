@@ -58,6 +58,13 @@ func (h *Hub) auth(next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		if r.URL.Query().Get("token") == h.uiToken {
+			http.SetCookie(w, &http.Cookie{
+				Name: "svrmon_token", Value: h.uiToken, Path: "/",
+				HttpOnly: true, SameSite: http.SameSiteStrictMode,
+				Secure: r.TLS != nil,
+			})
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -246,19 +253,4 @@ func (h *Hub) handleRename(w http.ResponseWriter, r *http.Request) {
 	h.broadcast(model.BrowserRenameMsg{Type: model.TypeRename, From: req.Server, To: name})
 	log.Printf("hub: server %q renamed to %q", req.Server, name)
 	writeJSON(w, map[string]any{"ok": true, "server": name})
-}
-
-// serveSPA serves static files, falling back to index.html for unknown paths.
-func serveSPA(distFS fs.FS) http.Handler {
-	fileServer := http.FileServer(http.FS(distFS))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p := strings.TrimPrefix(r.URL.Path, "/")
-		if p == "" {
-			p = "index.html"
-		}
-		if _, err := fs.Stat(distFS, p); err != nil {
-			r.URL.Path = "/"
-		}
-		fileServer.ServeHTTP(w, r)
-	})
 }

@@ -38,7 +38,7 @@
       </div>
 
       <!-- 实时 -->
-      <div v-show="tab === 'live'">
+      <div v-if="tab === 'live'">
         <div class="charts-grid">
           <div class="card chart-card"><p class="panel-title">CPU 使用率</p><Chart :option="cpuOpt" /></div>
           <div class="card chart-card"><p class="panel-title">内存使用率</p><Chart :option="memOpt" /></div>
@@ -100,7 +100,7 @@
       </div>
 
       <!-- GPU -->
-      <div v-show="tab === 'gpu'">
+      <div v-if="tab === 'gpu'">
         <div v-if="!latest?.gpus?.length" class="empty">
           此服务器未检测到 NVIDIA GPU（agent 配置 gpu.enable，或 nvidia-smi 不可用）。
         </div>
@@ -148,7 +148,7 @@
       </div>
 
       <!-- IPMI -->
-      <div v-show="tab === 'ipmi'">
+      <div v-if="tab === 'ipmi'">
         <div v-if="!latest?.ipmi" class="empty">
           此服务器未启用 IPMI 采集（agent 配置 ipmi.enable = true 且需安装 openipmi/ipmitool）。
         </div>
@@ -218,7 +218,7 @@
       </div>
 
       <!-- 本机配置 -->
-      <div v-show="tab === 'hw'">
+      <div v-if="tab === 'hw'">
         <div v-if="!hw" class="empty">等待硬件配置上报（agent 连接后立即上报一次）…</div>
         <div v-else class="charts-grid" style="grid-template-columns: repeat(auto-fit, minmax(380px, 1fr))">
           <div class="card">
@@ -305,7 +305,7 @@
       </div>
 
       <!-- 日志 -->
-      <div v-show="tab === 'logs'">
+      <div v-if="tab === 'logs'">
         <div class="range-bar">
           <button
             v-for="r in logsRanges"
@@ -345,7 +345,7 @@
       </div>
 
       <!-- 历史 -->
-      <div v-show="tab === 'history'">
+      <div v-if="tab === 'history'">
         <HistoryView :server="name" />
       </div>
     </div>
@@ -353,14 +353,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { state } from '../store.js'
 import { fmtBytes, fmtBytesAbs, fmtDur, fmtTemp, getLogs, postPower, postRename } from '../api.js'
 import { lineOption } from '../charts.js'
 import Bar from '../components/Bar.vue'
 import Chart from '../components/Chart.vue'
-import HistoryView from '../components/HistoryView.vue'
+const HistoryView = defineAsyncComponent(() => import('../components/HistoryView.vue'))
 
 const props = defineProps({ name: { type: String, required: true } })
 const router = useRouter()

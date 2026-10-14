@@ -2,6 +2,7 @@
 export function lineOption({ series, yFmt, max, min }) {
   const fmt = yFmt || ((v) => v)
   return {
+    animation: false,
     backgroundColor: 'transparent',
     grid: { left: 10, right: 14, top: 30, bottom: 8, containLabel: true },
     tooltip: {
