@@ -12,6 +12,17 @@
 
 ## 未发布
 
+### 修复
+- **新建克隆后无法编译 / 前端白屏**：
+  - `cmd/hub/assets/dist/index.html` 之前跟踪的是**构建产物**（引用 `/assets/index-*.js`），而被引用的 JS/CSS 不入库
+    → 新克隆直接 `go build` 会内嵌一个指向不存在资源的页面（白屏）。现在仓库只跟踪 `.gitkeep`，
+    `index.html` 与 `assets/` 均为构建产物；`build.ps1` 统一嵌入逻辑（`-SkipWeb` 时优先复用已有 `web/dist`，
+    否则写占位页），保证「index.html 与其引用资源始终同时存在」。
+  - `build.ps1` 替换 `assets/dist` 目录时会连 `.gitkeep` 一起删除，导致该目录无法入库
+    → `go:embed all:assets` 报 `no matching files found`，新克隆**完全无法编译**。现在构建后自动补回。
+  - `cmd/hub/main.go`：二进制未内嵌前端时，改用内置提示页（说明需先构建前端），避免源码运行时 404 或白屏。
+- 已实测：新克隆（仅 `.gitkeep`）可直接 `go build` 通过；无前端二进制启动后页面返回 200 提示页、API 正常。
+
 ### 新增
 - **Windows 一键安装脚本** `deploy/install-agent-windows.ps1`：自动完成安装目录创建、二进制复制、配置写入、服务注册
   （**NSSM 优先**，缺失时退回**系统自带任务计划**，含 SYSTEM 账户、开机自启、崩溃 1 分钟自动重启）、启动与校验。
