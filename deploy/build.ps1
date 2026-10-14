@@ -82,6 +82,20 @@ if (-not (Test-Path (Join-Path $assetsDist 'index.html'))) {
     Set-Content -Path (Join-Path $assetsDist 'index.html') -Value $placeholder
 }
 
+# .gitkeep 是仓库在本目录唯一跟踪的文件（保证新克隆后 go:embed 可编译）。
+# 上面的目录替换会删掉它，这里补回，内容固定不变以免产生 diff。
+$gitkeepPath = Join-Path $assetsDist '.gitkeep'
+if (-not (Test-Path $gitkeepPath)) {
+    Set-Content -Path $gitkeepPath -NoNewline -Value @'
+# 该文件保证 git 仓库克隆后 cmd/hub/assets/dist 目录存在，
+# 使 //go:embed all:assets 可以编译通过。
+#
+# 构建时 deploy/build.ps1 会把前端产物（index.html + assets/）复制到本目录；
+# 仓库只跟踪本占位文件，不跟踪构建产物（见 .gitignore）。
+# 仅做 go build 而未构建前端时，hub 会内嵌占位页并提示"前端尚未构建"。
+'@
+}
+
 # ---------- 二进制 ----------
 $out = Join-Path $root 'deploy\out'
 New-Item -ItemType Directory -Force $out | Out-Null

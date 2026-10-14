@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"testing/fstest"
 	"time"
 
 	"svrmon/internal/hub"
@@ -22,6 +23,15 @@ import (
 
 //go:embed all:assets
 var assets embed.FS
+
+// placeholderPage is served when the binary was built without the frontend.
+const placeholderPage = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>svrmon hub</title></head>
+<body style="background:#0b0f14;color:#d5dee8;font-family:system-ui,sans-serif;padding:2.5rem">
+<h1>svrmon hub</h1>
+<p>此二进制内没有前端页面：请先运行 <code>deploy/build.ps1</code> 构建前端后重新编译 hub。</p>
+<p style="color:#7b8a9c">API 与 agent 接入不受影响：<code>/api/servers</code>、<code>/ws</code>、<code>/agent</code> 均可正常使用。</p>
+</body></html>`
 
 // Config is the hub configuration file format.
 type Config struct {
@@ -105,9 +115,14 @@ func main() {
 		log.Printf("hub: alerts enabled but no SMTP recipient or webhook configured — nothing will be sent")
 	}
 
+	// 内嵌前端：仅在 index.html 与它引用的 assets 同时存在时才可用；
+	// 源码运行（未构建前端）时退化为内置提示页，避免出现 404 或白屏。
 	var dist fs.FS
 	if sub, err := fs.Sub(assets, "assets/dist"); err != nil {
 		log.Printf("hub: frontend assets missing: %v", err)
+	} else if _, err := fs.Stat(sub, "index.html"); err != nil {
+		log.Printf("hub: frontend not built into this binary — serving placeholder page (run deploy/build.ps1)")
+		dist = fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte(placeholderPage)}}
 	} else {
 		dist = sub
 	}
