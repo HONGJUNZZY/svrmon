@@ -10,6 +10,14 @@
 
 ---
 
+## 未发布
+
+- 新增 [docs/DEPLOY.md](docs/DEPLOY.md)：**部署与升级手册**（Ubuntu / Docker 软路由 / Windows 11 安装步骤、升级前检查清单、回滚、日常运维、发版流程）
+- 新增 `deploy/upgrade-hub.sh` 与 `deploy/upgrade-agent.sh`：**一键升级脚本**——停服务 → 备份二进制/配置/数据库（保留最近 5 份）→ 替换 → 启动 → 校验，失败时打印回滚命令
+- README 的「版本与迭代」章节改为指向手册与升级脚本
+
+---
+
 ## v0.1.0 — 初始版本
 
 **架构**：中心 Hub（Go 单二进制，内嵌前端 + SQLite）+ 各服务器 Agent（Go 单二进制，本地采集后 WebSocket 出站推送）+ Vue3/ECharts 网页端。支持 Ubuntu（systemd）与 Windows 11（NSSM/任务计划）双平台，Hub 可部署到软路由/NAS 的 Docker（amd64）。

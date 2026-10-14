@@ -47,6 +47,8 @@ deploy/           build.ps1、systemd 服务、配置示例、安装脚本
 
 ## 快速开始
 
+> **完整的安装 / 升级 / 回滚 / 运维手册见 [docs/DEPLOY.md](docs/DEPLOY.md)**（含 Docker 软路由、Windows 11、版本升级一键脚本）。下面是最短路径。
+
 ### 1. 构建（开发机，Windows 或 Linux 均可）
 
 需要 Go 1.22+ 和 Node.js（pnpm）。
@@ -194,16 +196,27 @@ hub 内置告警引擎，判定逻辑（智能模式，正常关机不打扰）�
 
 ## 版本与迭代
 
-当前版本 **v0.1.0**（详见 [CHANGELOG.md](CHANGELOG.md)）。发版流程：
+当前版本 **v0.1.0**（版本历史见 [CHANGELOG.md](CHANGELOG.md)，**安装/升级/回滚完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)**）。
+
+发版四步：
 
 1. 改代码 → `deploy/build.ps1` 构建验证（含前端嵌入与 Linux/Windows 双平台交叉编译）
 2. 同步三处版本号：`internal/hub/hub.go` 的 `HubVersion`、`internal/agent/client.go` 的 `Version`、`web/package.json` 的 `version`
 3. 更新 `CHANGELOG.md`
-4. 提交并推送；服务器上替换二进制后 `systemctl restart hub|agent`（Docker 部署则重建容器；数据库结构变更由 hub 启动时自动迁移）
+4. 提交推送：
 
 ```bash
 git add -A && git commit -m "v0.1.1: ..." && git push
 ```
+
+部署侧升级用一键脚本（自动备份 + 校验 + 回滚提示），配置与数据库不受影响：
+
+```bash
+sudo ./upgrade-hub.sh svrmon-hub-linux-amd64      # 中心机
+sudo ./upgrade-agent.sh svrmon-agent-linux-amd64  # 各被监控机（保留原配置）
+```
+
+Docker 部署则替换二进制后 `docker compose up -d --build`；数据库结构变更由 hub 启动时自动迁移。
 
 ## 安全建议
 
