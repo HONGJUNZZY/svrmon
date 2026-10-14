@@ -10,7 +10,7 @@
 
 ---
 
-## 未发布
+## v0.1.1 — 2026-10-14
 
 ### 修复
 - **Hub：agent 连接每 120 秒被强制断开**（[internal/hub/hub.go](internal/hub/hub.go)）。原因是连接建立时设置了一次性读超时，
@@ -24,6 +24,10 @@
 - 新增 [docs/DEPLOY.md](docs/DEPLOY.md)：**部署与升级手册**（Ubuntu / Docker 软路由 / Windows 11 安装步骤、升级前检查清单、回滚、日常运维、发版流程）
 - 新增 `deploy/upgrade-hub.sh` 与 `deploy/upgrade-agent.sh`：**一键升级脚本**——停服务 → 备份二进制/配置/数据库（保留最近 5 份）→ 替换 → 启动 → 校验，失败时打印回滚命令
 - README 的「版本与迭代」章节改为指向手册与升级脚本
+
+### 升级说明
+- **只需升级 Hub**（本次修复在 hub 端）；agent 保持 v0.1.0 亦可正常工作
+- 无数据库结构变更，升级不需要备份数据库（仍建议按 [docs/DEPLOY.md](docs/DEPLOY.md) §4.2 走一键脚本）
 
 ---
 
