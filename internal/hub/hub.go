@@ -222,15 +222,23 @@ func (h *Hub) handleAgent(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	_ = conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+	// Idle timeout: refreshed on every frame received from the agent.
+	// NOTE: the pong handler alone is NOT enough — the hub never sends pings,
+	// so it never receives pongs, and that handler would never run. Only the
+	// agent pings (every 20s) and gorilla's default ping handler replies with
+	// a pong, which keeps the *agent's* read deadline alive, not this one.
+	const agentIdleTimeout = 120 * time.Second
+	_ = conn.SetReadDeadline(time.Now().Add(agentIdleTimeout))
 	conn.SetPongHandler(func(string) error {
-		return conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+		return conn.SetReadDeadline(time.Now().Add(agentIdleTimeout))
 	})
 	for {
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
+		// Any frame (snapshot / config / cmd result / ping) counts as liveness.
+		_ = conn.SetReadDeadline(time.Now().Add(agentIdleTimeout))
 		var env struct {
 			Type string `json:"type"`
 		}
