@@ -27,18 +27,16 @@
         <div class="bars">
           <Bar label="CPU" :value="s.latest?.cpu?.usage" />
           <Bar label="内存" :value="memPct(s)" />
-          <template v-for="(g, i) in (s.latest?.gpus || []).slice(0, 8)" :key="i">
-            <Bar :label="'GPU' + i" :value="g.util" />
-            <Bar :label="'显存' + i" :value="memUtilOf(g)" />
-          </template>
+          <div v-for="g in sortedGPUs(s)" :key="gpuKey(g)" class="overview-gpu">
+            <div class="overview-gpu-head"><span>{{ gpuLabel(g) }}</span><span>{{ fmtTemp(g.temp) }} · {{ g.powerDraw == null ? '功耗未知' : g.powerDraw.toFixed(1) + ' W' }}</span></div>
+            <Bar label="利用率" :value="g.util" />
+            <Bar label="显存占用" :value="gpuMemoryPercent(g)" />
+          </div>
         </div>
         <div class="sc-foot">
           <span v-if="s.latest?.cpu?.temp">CPU {{ fmtTemp(s.latest.cpu.temp) }}</span>
-          <span v-for="(g, i) in (s.latest?.gpus || []).slice(0, 4)" :key="'g' + i">
-            GPU{{ i }} {{ fmtTemp(g.temp) }}
-          </span>
-          <span v-if="s.latest?.ipmi?.powerWatts" class="pwr">
-            {{ s.latest.ipmi.powerWatts.toFixed(0) }} W
+          <span v-if="hasSystemPower(s.latest?.ipmi)" class="pwr" :title="powerSourceLabel(s.latest.ipmi)">
+            整机 {{ s.latest.ipmi.powerWatts.toFixed(0) }} W
           </span>
           <span class="net">↓{{ fmtBytes(sumNet(s.latest, 'rxBps')) }} ↑{{ fmtBytes(sumNet(s.latest, 'txBps')) }}</span>
         </div>
@@ -52,6 +50,8 @@ import { computed } from 'vue'
 import { state } from '../store.js'
 import { fmtBytes, fmtDur, fmtTemp, postRename } from '../api.js'
 import Bar from '../components/Bar.vue'
+import { gpuKey, gpuLabel, gpuMemoryPercent } from '../gpu.js'
+import { hasSystemPower, powerSourceLabel } from '../power.js'
 
 const servers = computed(() => state.servers)
 const serverCount = computed(() => Object.keys(state.servers).length)
@@ -62,10 +62,7 @@ function memPct(s) {
     : null
 }
 
-function memUtilOf(g) {
-  if (g.memUtil) return g.memUtil
-  return g.memTotal ? (g.memUsed / g.memTotal) * 100 : null
-}
+const sortedGPUs = (server) => [...(server.latest?.gpus || [])].sort((a, b) => a.index - b.index)
 
 function sumNet(latest, key) {
   let v = 0

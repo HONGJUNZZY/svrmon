@@ -27,14 +27,18 @@ type IPMICollector struct {
 	sensorEvery time.Duration
 	selEvery    time.Duration
 
-	sensors   []model.Sensor
-	powerW    float64
-	sensorAt  time.Time
-	sel       []model.SELEntry
-	selAt     time.Time
-	failUntil time.Time
-	lastErr   string
-	everOK    bool
+	sensors        []model.Sensor
+	power          powerReading
+	powerAvailable bool
+	powerAt        time.Time
+	powerError     string
+	redfish        *redfishPower
+	sensorAt       time.Time
+	sel            []model.SELEntry
+	selAt          time.Time
+	failUntil      time.Time
+	lastErr        string
+	everOK         bool
 }
 
 // NewIPMICollector creates a collector with the given refresh intervals.
@@ -126,11 +130,20 @@ func (c *IPMICollector) Fill(ctx context.Context, snap *model.Snapshot) {
 			c.selAt = now
 		}
 	}
-	avail := c.everOK && c.lastErr == "" && len(c.sensors) > 0
+	if now.Sub(c.powerAt) >= c.sensorEvery {
+		c.refreshPowerLocked(ctx)
+		c.powerAt = time.Now()
+	}
+	avail := (c.everOK && c.lastErr == "" && len(c.sensors) > 0) || c.powerAvailable
 	ipmi := &model.IPMI{
-		TS:         now.Unix(),
-		Available:  avail,
-		PowerWatts: c.powerW,
+		TS:             now.Unix(),
+		Available:      avail,
+		PowerWatts:     c.power.Watts,
+		PowerAvailable: c.powerAvailable,
+		PowerSource:    c.power.Source,
+		PowerInputs:    c.power.Inputs,
+		PowerTS:        c.powerAt.Unix(),
+		PowerError:     c.powerError,
 	}
 	if !avail {
 		if c.lastErr != "" {
@@ -180,38 +193,54 @@ func (c *IPMICollector) refreshSensorsLocked(ctx context.Context) error {
 		return fmt.Errorf("empty sensor list")
 	}
 	c.sensors = sensors
-	c.powerW = wattsFromSensors(sensors)
 	return nil
 }
 
-// wattsFromSensors picks the total system power draw among Watt sensors.
-func wattsFromSensors(sensors []model.Sensor) float64 {
-	var totalCands, allCands []float64
-	for _, s := range sensors {
-		if !s.HasValue || !strings.EqualFold(s.Unit, "watts") {
-			continue
-		}
-		n := strings.ToLower(s.Name)
-		isTotal := (strings.Contains(n, "sys") || strings.Contains(n, "total") || strings.Contains(n, "system") || strings.Contains(n, "board")) &&
-			(strings.Contains(n, "pwr") || strings.Contains(n, "power"))
-		if isTotal {
-			totalCands = append(totalCands, s.ValueF)
-		}
-		allCands = append(allCands, s.ValueF)
+// SetRedfishPower enables optional per-PSU AC input telemetry from a BMC.
+func (c *IPMICollector) SetRedfishPower(cfg RedfishPowerConfig) error {
+	r, err := newRedfishPower(cfg)
+	if err != nil {
+		return err
 	}
-	pick := func(cands []float64) float64 {
-		best := 0.0
-		for _, v := range cands {
-			if v > best {
-				best = v
+	c.redfish = r
+	return nil
+}
+
+func (c *IPMICollector) refreshPowerLocked(ctx context.Context) {
+	c.power = powerReading{}
+	c.powerAvailable = false
+	c.powerError = ""
+	if c.redfish != nil {
+		reading, err := c.redfish.read(ctx)
+		if err == nil {
+			c.power = reading
+			c.powerAvailable = true
+			return
+		}
+		c.powerError = err.Error()
+	}
+	if c.lastErr == "" && time.Since(c.sensorAt) < 2*c.sensorEvery {
+		if reading, ok := powerFromSensors(c.sensors); ok {
+			c.power = reading
+			c.powerAvailable = true
+			return
+		}
+	}
+	if !strings.Contains(c.lastErr, "not found") {
+		powerCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		out, err := c.run(powerCtx, "dcmi", "power", "reading")
+		cancel()
+		if err == nil {
+			if reading, ok := parseDCMIPower(out); ok {
+				c.power = reading
+				c.powerAvailable = true
+				return
 			}
 		}
-		return best
 	}
-	if len(totalCands) > 0 {
-		return pick(totalCands)
+	if c.powerError == "" {
+		c.powerError = "system input power unavailable"
 	}
-	return pick(allCands)
 }
 
 func (c *IPMICollector) refreshSELLocked(ctx context.Context) error {

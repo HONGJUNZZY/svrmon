@@ -24,9 +24,9 @@
       <div class="card chart-card"><p class="panel-title">CPU / iowait</p><Chart :option="cpuOpt" /></div>
       <div class="card chart-card"><p class="panel-title">内存</p><Chart :option="memOpt" /></div>
       <div class="card chart-card"><p class="panel-title">网络吞吐</p><Chart :option="netOpt" /></div>
-      <div v-if="hasGpu" class="card chart-card"><p class="panel-title">GPU 利用率</p><Chart :option="gpuOpt" /></div>
+      <div v-if="hasGpu" class="card chart-card"><p class="panel-title">GPU 平均利用率（历史汇总）</p><Chart :option="gpuOpt" /></div>
       <div v-if="hasTemp" class="card chart-card"><p class="panel-title">温度（CPU / GPU）</p><Chart :option="tempOpt" /></div>
-      <div v-if="hasPower" class="card chart-card"><p class="panel-title">功耗（GPU / 整机 IPMI）</p><Chart :option="powerOpt" /></div>
+      <div v-if="hasPower" class="card chart-card"><p class="panel-title">功耗（GPU 合计 / 整机）</p><Chart :option="powerOpt" /></div>
       <div v-if="hasFan" class="card chart-card"><p class="panel-title">风扇转速（最高）</p><Chart :option="fanOpt" /></div>
       <div v-if="hasLogs" class="card chart-card"><p class="panel-title">严重日志（条数 / 桶）</p><Chart :option="logOpt" /></div>
     </div>
@@ -149,7 +149,7 @@ const gpuOpt = computed(() =>
   lineOption({
     yFmt: (v) => v.toFixed(0) + '%',
     max: 100,
-    series: [{ name: 'GPU 利用率', color: '#3fb950', area: true, data: X('gpuUtil') }],
+    series: [{ name: 'GPU 平均利用率', color: '#3fb950', area: true, data: X('gpuUtil') }],
   }),
 )
 const tempOpt = computed(() =>
@@ -165,7 +165,7 @@ const powerOpt = computed(() =>
   lineOption({
     yFmt: (v) => v.toFixed(0) + ' W',
     series: [
-      { name: 'GPU 功耗', color: '#3fb950', area: true, data: X('gpuPower') },
+      { name: '各 GPU 功耗合计', color: '#3fb950', area: true, data: X('gpuPower') },
       { name: '整机功耗 (IPMI)', color: '#4cc2ff', data: X('ipmiPower') },
     ],
   }),

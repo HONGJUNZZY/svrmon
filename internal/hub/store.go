@@ -251,7 +251,7 @@ func (s *Store) Insert(server string, snap *model.Snapshot) {
 		cpuTemp = snap.CPU.Temp
 	}
 	if snap.IPMI != nil {
-		if snap.IPMI.PowerWatts > 0 {
+		if snap.IPMI.PowerAvailable || snap.IPMI.PowerWatts > 0 {
 			ipmiPower = snap.IPMI.PowerWatts
 		}
 		var fm float64

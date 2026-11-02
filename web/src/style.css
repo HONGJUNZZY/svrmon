@@ -113,7 +113,12 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .result.ok { background: rgba(63, 185, 80, 0.12); color: var(--ok); }
 .result.err { background: rgba(248, 81, 73, 0.12); color: var(--crit); }
 
-.gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+.gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 16px; }
+.overview-gpu { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.overview-gpu-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+.overview-gpu-head > span:first-child { color: var(--text); }
+.gpu-card-chart { margin: 12px 0; }
+.gpu-card-chart .chart { height: 180px; }
 .gpu-name { font-weight: 600; margin-bottom: 6px; }
 .kv { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; gap: 12px; }
 .kv .k { color: var(--muted); }

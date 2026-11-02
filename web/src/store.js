@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { appendGPUSnapshot } from './gpu.js'
 
 // Global live state fed by the hub WebSocket.
 export const state = reactive({
@@ -18,6 +19,7 @@ export function setToken(t) {
 }
 
 function ringPush(st, snap) {
+  appendGPUSnapshot(st, snap, RING_MAX)
   const cpu = snap.cpu ? snap.cpu.usage : null
   const iowait = snap.cpu ? snap.cpu.iowait : null
   const memPct = snap.mem && snap.mem.total ? (snap.mem.used / snap.mem.total) * 100 : null
@@ -107,6 +109,9 @@ export function connect(force = false) {
           s.latest = st.latest
           s.config = st.config || null
           s.ring = []
+          s.diskRing = {}
+          s.gpuRing = {}
+          if (st.latest) ringPush(s, st.latest)
         }
         break
       case 'join':

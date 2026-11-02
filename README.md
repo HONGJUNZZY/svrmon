@@ -123,6 +123,8 @@ sudo ./install-agent.sh svrmon-agent-linux-amd64 ws://<hub IP>:8080/agent <agent
 
 ## 配置说明
 
+多 GPU 逐卡曲线、显存占用率与 CRPS/PSU 输入功耗取值见 [docs/GPU_POWER.md](docs/GPU_POWER.md)。部分 BMC 需在 Agent 配置可选 Redfish 读取，页面会显示两路电源输入和总和。
+
 网页采用按需加载、构建时 gzip 和内容指纹缓存；构建与验证说明见 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。升级网页只需重新构建并替换 Hub，Agent 无需改动。
 
 **hub.config.json**

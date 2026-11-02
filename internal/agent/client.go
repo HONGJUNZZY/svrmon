@@ -22,7 +22,7 @@ import (
 )
 
 // Version is the agent build version.
-const Version = "0.2.0"
+const Version = "3.0.0"
 
 // GPUConfig controls the NVIDIA collector.
 type GPUConfig struct {
@@ -33,10 +33,11 @@ type GPUConfig struct {
 
 // IPMIConfig controls the local BMC collector.
 type IPMIConfig struct {
-	Enable    bool   `json:"enable"`
-	Path      string `json:"path"`
-	SensorSec int    `json:"sensorSec"`
-	SELSec    int    `json:"selSec"`
+	Redfish   *collect.RedfishPowerConfig `json:"redfish,omitempty"`
+	Enable    bool                        `json:"enable"`
+	Path      string                      `json:"path"`
+	SensorSec int                         `json:"sensorSec"`
+	SELSec    int                         `json:"selSec"`
 }
 
 // LogsConfig controls the severe-journal (kernel/hardware/system error) collector.
@@ -49,34 +50,34 @@ type LogsConfig struct {
 
 // HWConfig controls the static hardware inventory collector.
 type HWConfig struct {
-	Enable     bool `json:"enable"`
-	IntervalMin int `json:"intervalMin"` // refresh interval, minutes
+	Enable      bool `json:"enable"`
+	IntervalMin int  `json:"intervalMin"` // refresh interval, minutes
 }
 
 // Config is the agent configuration file format.
 type Config struct {
-	HubURL     string     `json:"hubUrl"`
-	Token      string     `json:"token"`
-	Name       string     `json:"name"`
-	IntervalMS int        `json:"intervalMs"`
-	GPU        GPUConfig  `json:"gpu"`
-	IPMI       IPMIConfig `json:"ipmi"`
-	Logs       LogsConfig `json:"logs"`
-	HW         HWConfig   `json:"hw"`
-	LogFile    string     `json:"logFile"`          // empty = stderr/journald
-	LogRetentionDays int  `json:"logRetentionDays"` // daily rotation, auto-delete older
+	HubURL           string     `json:"hubUrl"`
+	Token            string     `json:"token"`
+	Name             string     `json:"name"`
+	IntervalMS       int        `json:"intervalMs"`
+	GPU              GPUConfig  `json:"gpu"`
+	IPMI             IPMIConfig `json:"ipmi"`
+	Logs             LogsConfig `json:"logs"`
+	HW               HWConfig   `json:"hw"`
+	LogFile          string     `json:"logFile"`          // empty = stderr/journald
+	LogRetentionDays int        `json:"logRetentionDays"` // daily rotation, auto-delete older
 }
 
 // DefaultConfig returns sane defaults.
 func DefaultConfig() Config {
 	return Config{
-		HubURL:     "ws://127.0.0.1:8080/agent",
-		Token:      "change-me",
-		IntervalMS: 2000,
-		GPU:        GPUConfig{Enable: true, Path: "nvidia-smi", IntervalSec: 5},
-		IPMI:       IPMIConfig{Enable: true, Path: "ipmitool", SensorSec: 30, SELSec: 60},
-		Logs:       LogsConfig{Enable: true, Path: "journalctl", IntervalSec: 30, BackfillMin: 10},
-		HW:         HWConfig{Enable: true, IntervalMin: 30},
+		HubURL:           "ws://127.0.0.1:8080/agent",
+		Token:            "change-me",
+		IntervalMS:       2000,
+		GPU:              GPUConfig{Enable: true, Path: "nvidia-smi", IntervalSec: 5},
+		IPMI:             IPMIConfig{Enable: true, Path: "ipmitool", SensorSec: 30, SELSec: 60},
+		Logs:             LogsConfig{Enable: true, Path: "journalctl", IntervalSec: 30, BackfillMin: 10},
+		HW:               HWConfig{Enable: true, IntervalMin: 30},
 		LogRetentionDays: 7,
 	}
 }
@@ -103,6 +104,11 @@ func New(cfg Config) *Agent {
 	}
 	if cfg.IPMI.Enable {
 		a.ipmi = collect.NewIPMICollector(cfg.IPMI.Path, cfg.IPMI.SensorSec, cfg.IPMI.SELSec)
+		if cfg.IPMI.Redfish != nil {
+			if err := a.ipmi.SetRedfishPower(*cfg.IPMI.Redfish); err != nil {
+				log.Printf("agent: Redfish power config: %v", err)
+			}
+		}
 	}
 	if cfg.Logs.Enable {
 		a.logs = collect.NewLogsCollector(cfg.Logs.Path, cfg.Logs.IntervalSec, cfg.Logs.BackfillMin)

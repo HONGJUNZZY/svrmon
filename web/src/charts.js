@@ -13,6 +13,7 @@ export function lineOption({ series, yFmt, max, min }) {
       valueFormatter: (v) => (v == null ? '—' : fmt(v)),
     },
     legend: {
+      type: 'scroll',
       top: 0,
       right: 0,
       icon: 'rect',

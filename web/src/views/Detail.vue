@@ -21,7 +21,7 @@
           <span>系统：<b>{{ server.info.platform || '—' }}</b></span>
           <span>内核：<b>{{ server.info.kernel || '—' }}（{{ server.info.kernelArch || '?' }}）</b></span>
           <span>来源 IP：<b>{{ server.info.remoteAddr || '—' }}</b></span>
-          <span>GPU：<b>{{ server.info.gpuCount ? server.info.gpuCount + ' 卡' : '无' }}</b></span>
+          <span>GPU：<b>{{ currentGPUs.length ? currentGPUs.length + ' 卡' : (server.info.gpuCount ? server.info.gpuCount + ' 卡（等待数据）' : '无') }}</b></span>
         </div>
       </div>
 
@@ -101,15 +101,18 @@
 
       <!-- GPU -->
       <div v-if="tab === 'gpu'">
+        <p class="muted">逐卡显示，显存占用按已用容量 / 总容量计算；显存带宽利用率为独立指标。</p>
         <div v-if="!latest?.gpus?.length" class="empty">
           此服务器未检测到 NVIDIA GPU（agent 配置 gpu.enable，或 nvidia-smi 不可用）。
         </div>
         <div class="gpu-grid">
-          <div v-for="g in latest?.gpus || []" :key="g.uuid || g.index" class="card">
+          <div v-for="g in currentGPUs" :key="gpuKey(g)" class="card">
             <div class="gpu-name">GPU{{ g.index }} · {{ g.name }}</div>
             <Bar label="利用率" :value="g.util" />
-            <Bar label="显存" :value="memUtilOf(g)" />
+            <Bar label="显存占用" :value="gpuMemoryPercent(g)" />
+            <div class="gpu-card-chart"><Chart :option="gpuCardOptions[gpuKey(g)]" /></div>
             <div class="kv"><span class="k">显存占用</span><span>{{ g.memUsed }} / {{ g.memTotal }} MiB</span></div>
+            <div class="kv"><span class="k">显存带宽利用率</span><span>{{ g.memUtil.toFixed(0) }}%</span></div>
             <div class="kv">
               <span class="k">温度</span>
               <span :class="g.temp >= 85 ? 'status-bad' : ''">{{ fmtTemp(g.temp) }}</span>
@@ -145,6 +148,10 @@
             </div>
           </div>
         </div>
+        <div v-if="currentGPUs.length" class="charts-grid" style="margin-top: 16px">
+          <div class="card chart-card"><p class="panel-title">逐卡温度</p><Chart :option="gpuTempOpt" /></div>
+          <div class="card chart-card"><p class="panel-title">逐卡功耗（非整机功耗）</p><Chart :option="gpuPowerOpt" /></div>
+        </div>
       </div>
 
       <!-- IPMI -->
@@ -157,14 +164,19 @@
             <div class="kv">
               <span class="k">IPMI 状态</span>
               <span :class="latest.ipmi.available ? 'status-ok' : 'status-bad'">
-                {{ latest.ipmi.available ? '正常（本地 ipmitool）' : '不可用：' + (latest.ipmi.error || '未知错误') }}
+                {{ latest.ipmi.available ? '正常' : '不可用：' + (latest.ipmi.error || '未知错误') }}
               </span>
             </div>
             <div class="kv">
               <span class="k">整机功耗</span>
-              <span v-if="latest.ipmi.powerWatts" class="big-power">{{ latest.ipmi.powerWatts.toFixed(0) }} W</span>
+              <span v-if="hasSystemPower(latest.ipmi)" class="big-power">{{ latest.ipmi.powerWatts.toFixed(0) }} W</span>
               <span v-else>—</span>
             </div>
+            <div v-if="hasSystemPower(latest.ipmi)" class="kv"><span class="k">取值来源</span><span>{{ powerSourceLabel(latest.ipmi) }}</span></div>
+            <div v-for="input in latest.ipmi.powerInputs || []" :key="input.name" class="kv"><span class="k">{{ input.name }} 输入</span><span>{{ input.watts.toFixed(1) }} W</span></div>
+            <p v-if="latest.ipmi.powerInputs?.length" class="muted">整机功耗 = 各电源输入功率之和，包含电源转换损耗。</p>
+            <div v-if="latest.ipmi.powerTS" class="kv"><span class="k">功耗采样时间</span><span>{{ new Date(latest.ipmi.powerTS * 1000).toLocaleTimeString() }}</span></div>
+            <p v-if="latest.ipmi.powerError" class="status-warn">电源采集：{{ latest.ipmi.powerError }}</p>
           </div>
 
           <p class="section-title">电源控制（agent → 本地 ipmitool chassis power）</p>
@@ -359,6 +371,8 @@ import { state } from '../store.js'
 import { fmtBytes, fmtBytesAbs, fmtDur, fmtTemp, getLogs, postPower, postRename } from '../api.js'
 import { lineOption } from '../charts.js'
 import Bar from '../components/Bar.vue'
+import { gpuKey, gpuLabel, gpuMemoryPercent } from '../gpu.js'
+import { hasSystemPower, powerSourceLabel } from '../power.js'
 import Chart from '../components/Chart.vue'
 const HistoryView = defineAsyncComponent(() => import('../components/HistoryView.vue'))
 
@@ -392,7 +406,8 @@ const server = computed(() => state.servers[props.name])
 const latest = computed(() => server.value?.latest)
 const hw = computed(() => server.value?.config)
 const ring = computed(() => server.value?.ring || [])
-const hasGPU = computed(() => ring.value.some((p) => p.gpuUtil != null))
+const currentGPUs = computed(() => [...(latest.value?.gpus || [])].sort((a, b) => a.index - b.index))
+const hasGPU = computed(() => currentGPUs.value.length > 0)
 
 const cpuOpt = computed(() =>
   lineOption({
@@ -448,15 +463,22 @@ const netOpt = computed(() =>
     ],
   }),
 )
-const gpuOpt = computed(() =>
-  lineOption({
-    yFmt: (v) => v.toFixed(0) + '%',
-    max: 100,
-    series: [
-      { name: 'GPU 利用率(均值)', color: '#3fb950', area: true, data: ring.value.map((p) => [p.t * 1000, p.gpuUtil]) },
-    ],
-  }),
-)
+const gpuPalette = ['#4cc2ff', '#3fb950', '#f0883e', '#a371f7', '#e599f7', '#d29922', '#58a6ff', '#ff7b72']
+const gpuPoints = (g) => server.value?.gpuRing?.[gpuKey(g)] || []
+const gpuMetricOption = (metric, format, max) => lineOption({
+  yFmt: format, max,
+  series: currentGPUs.value.map((g, i) => ({ name: gpuLabel(g), color: gpuPalette[i % gpuPalette.length], data: gpuPoints(g).map((p) => [p.t * 1000, p[metric]]) })),
+})
+const gpuOpt = computed(() => gpuMetricOption('util', (v) => v.toFixed(0) + '%', 100))
+const gpuTempOpt = computed(() => gpuMetricOption('temp', (v) => v.toFixed(0) + '°C'))
+const gpuPowerOpt = computed(() => gpuMetricOption('power', (v) => v.toFixed(1) + ' W'))
+const gpuCardOptions = computed(() => Object.fromEntries(currentGPUs.value.map((g) => [gpuKey(g), lineOption({
+  yFmt: (v) => v.toFixed(1) + '%', min: 0, max: 100,
+  series: [
+    { name: 'GPU 利用率', color: '#4cc2ff', data: gpuPoints(g).map((p) => [p.t * 1000, p.util]) },
+    { name: '显存占用率', color: '#a371f7', data: gpuPoints(g).map((p) => [p.t * 1000, p.memPct]) },
+  ],
+})])))
 
 const loadStr = computed(() => {
   const l = latest.value?.load
@@ -521,10 +543,6 @@ function shortMount(mp) {
   if (mp === '/') return '/'
   const parts = mp.split('/').filter(Boolean)
   return parts.length ? parts[parts.length - 1].slice(0, 8) : mp
-}
-function memUtilOf(g) {
-  if (g.memUtil) return g.memUtil
-  return g.memTotal ? (g.memUsed / g.memTotal) * 100 : null
 }
 function sensorClass(st) {
   if (st === 'ok') return 'status-ok'

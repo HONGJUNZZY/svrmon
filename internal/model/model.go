@@ -4,16 +4,16 @@ package model
 
 // Message types exchanged over WebSocket connections.
 const (
-	TypeHello      = "hello"       // agent -> hub (once, after connect)
-	TypeSnapshot   = "snapshot"    // agent -> hub, periodic
-	TypeInit       = "init"        // hub -> browser, full state on connect
-	TypeOffline    = "offline"     // hub -> browser, agent disconnected
-	TypeCmd        = "cmd"         // hub -> agent, run a command (e.g. ipmi power)
-	TypeCmdResult  = "cmd_result"  // agent -> hub, command result
-	TypeServerJoin = "join"        // hub -> browser, a (new) agent connected
-	TypeGoodbye    = "goodbye"     // agent -> hub, sent on graceful stop (SIGTERM)
-	TypeRename     = "rename"      // hub -> browser, a server was renamed
-	TypeConfig     = "config"      // agent -> hub -> browser, machine hardware config
+	TypeHello      = "hello"      // agent -> hub (once, after connect)
+	TypeSnapshot   = "snapshot"   // agent -> hub, periodic
+	TypeInit       = "init"       // hub -> browser, full state on connect
+	TypeOffline    = "offline"    // hub -> browser, agent disconnected
+	TypeCmd        = "cmd"        // hub -> agent, run a command (e.g. ipmi power)
+	TypeCmdResult  = "cmd_result" // agent -> hub, command result
+	TypeServerJoin = "join"       // hub -> browser, a (new) agent connected
+	TypeGoodbye    = "goodbye"    // agent -> hub, sent on graceful stop (SIGTERM)
+	TypeRename     = "rename"     // hub -> browser, a server was renamed
+	TypeConfig     = "config"     // agent -> hub -> browser, machine hardware config
 )
 
 // ServerInfo is the static description of a monitored server,
@@ -53,17 +53,17 @@ type AgentConfigMsg struct {
 
 // Snapshot is one periodic sample of all live metrics of a server.
 type Snapshot struct {
-	TS      int64     `json:"ts"` // unix seconds
-	CPU     *CPU      `json:"cpu,omitempty"`
-	Mem     *Mem      `json:"mem,omitempty"`
-	Load    *Load     `json:"load,omitempty"`
-	Uptime  uint64    `json:"uptime"`
-	Disks   []DiskIO  `json:"disks,omitempty"`  // per-device io rates
-	Mounts  []Mount   `json:"mounts,omitempty"` // filesystem capacity (refreshed lazily)
-	Nets    []NetIO   `json:"nets,omitempty"`
-	GPUs    []GPU     `json:"gpus,omitempty"`
-	IPMI    *IPMI     `json:"ipmi,omitempty"`
-	Logs    []LogEntry `json:"logs,omitempty"` // new severe log entries since last snapshot
+	TS     int64      `json:"ts"` // unix seconds
+	CPU    *CPU       `json:"cpu,omitempty"`
+	Mem    *Mem       `json:"mem,omitempty"`
+	Load   *Load      `json:"load,omitempty"`
+	Uptime uint64     `json:"uptime"`
+	Disks  []DiskIO   `json:"disks,omitempty"`  // per-device io rates
+	Mounts []Mount    `json:"mounts,omitempty"` // filesystem capacity (refreshed lazily)
+	Nets   []NetIO    `json:"nets,omitempty"`
+	GPUs   []GPU      `json:"gpus,omitempty"`
+	IPMI   *IPMI      `json:"ipmi,omitempty"`
+	Logs   []LogEntry `json:"logs,omitempty"` // new severe log entries since last snapshot
 }
 
 // LogEntry is one severe journal entry (kernel/hardware/system error).
@@ -102,11 +102,11 @@ type MachineConfig struct {
 	CPUMaxFreq        string `json:"cpuMaxFreq,omitempty"`
 	CPUVirt           string `json:"cpuVirt,omitempty"`
 
-	MemTotalBytes    uint64      `json:"memTotalBytes,omitempty"`
-	MemChannels      int         `json:"memChannels,omitempty"`
-	MemSlotsTotal    int         `json:"memSlotsTotal,omitempty"`
-	MemSlotsPopulated int        `json:"memSlotsPopulated,omitempty"`
-	MemModules       []MemModule `json:"memModules,omitempty"`
+	MemTotalBytes     uint64      `json:"memTotalBytes,omitempty"`
+	MemChannels       int         `json:"memChannels,omitempty"`
+	MemSlotsTotal     int         `json:"memSlotsTotal,omitempty"`
+	MemSlotsPopulated int         `json:"memSlotsPopulated,omitempty"`
+	MemModules        []MemModule `json:"memModules,omitempty"`
 
 	GPUs []GPUInfo `json:"gpus,omitempty"`
 
@@ -116,14 +116,14 @@ type MachineConfig struct {
 }
 
 type MemModule struct {
-	Locator     string `json:"locator"`
-	Type        string `json:"type,omitempty"`
-	Size        string `json:"size,omitempty"`
-	Speed       string `json:"speed,omitempty"`
-	FormFactor  string `json:"formFactor,omitempty"`
+	Locator      string `json:"locator"`
+	Type         string `json:"type,omitempty"`
+	Size         string `json:"size,omitempty"`
+	Speed        string `json:"speed,omitempty"`
+	FormFactor   string `json:"formFactor,omitempty"`
 	Manufacturer string `json:"manufacturer,omitempty"`
-	PartNumber  string `json:"partNumber,omitempty"`
-	Populated   bool   `json:"populated"`
+	PartNumber   string `json:"partNumber,omitempty"`
+	Populated    bool   `json:"populated"`
 }
 
 type GPUInfo struct {
@@ -148,11 +148,11 @@ type NICInfo struct {
 }
 
 type CPU struct {
-	Usage   float64   `json:"usage"`            // percent, all cores
+	Usage   float64   `json:"usage"`             // percent, all cores
 	PerCore []float64 `json:"perCore,omitempty"` // percent, per core
-	Iowait  float64   `json:"iowait"`           // percent
-	Temp    float64   `json:"temp,omitempty"`   // max package/core temp, degC
-	Freq    float64   `json:"freq,omitempty"`   // nominal MHz
+	Iowait  float64   `json:"iowait"`            // percent
+	Temp    float64   `json:"temp,omitempty"`    // max package/core temp, degC
+	Freq    float64   `json:"freq,omitempty"`    // nominal MHz
 }
 
 type Mem struct {
@@ -200,23 +200,23 @@ type NetIO struct {
 }
 
 type GPU struct {
-	Index        int      `json:"index"`
-	UUID         string   `json:"uuid"`
-	Name         string   `json:"name"`
-	Util         float64  `json:"util"`         // percent
-	MemUtil      float64  `json:"memUtil"`      // percent
-	MemUsed      uint64   `json:"memUsed"`      // MiB
-	MemTotal     uint64   `json:"memTotal"`     // MiB
-	Temp         float64  `json:"temp"`         // degC
-	Fan          *float64 `json:"fan,omitempty"` // percent (nil if unsupported)
-	PowerDraw    *float64 `json:"powerDraw,omitempty"` // W
-	PowerLimit   *float64 `json:"powerLimit,omitempty"` // W
-	ClockSM      float64  `json:"clockSM"`      // MHz
-	ClockMem     float64  `json:"clockMem"`     // MHz
-	PState       string   `json:"pState"`
-	ECCCorrected uint64   `json:"eccCorrected"` // volatile count
-	ECCUncorrected uint64 `json:"eccUncorrected"`
-	Procs        []GPUProc `json:"procs,omitempty"`
+	Index          int       `json:"index"`
+	UUID           string    `json:"uuid"`
+	Name           string    `json:"name"`
+	Util           float64   `json:"util"`                 // percent
+	MemUtil        float64   `json:"memUtil"`              // percent
+	MemUsed        uint64    `json:"memUsed"`              // MiB
+	MemTotal       uint64    `json:"memTotal"`             // MiB
+	Temp           float64   `json:"temp"`                 // degC
+	Fan            *float64  `json:"fan,omitempty"`        // percent (nil if unsupported)
+	PowerDraw      *float64  `json:"powerDraw,omitempty"`  // W
+	PowerLimit     *float64  `json:"powerLimit,omitempty"` // W
+	ClockSM        float64   `json:"clockSM"`              // MHz
+	ClockMem       float64   `json:"clockMem"`             // MHz
+	PState         string    `json:"pState"`
+	ECCCorrected   uint64    `json:"eccCorrected"` // volatile count
+	ECCUncorrected uint64    `json:"eccUncorrected"`
+	Procs          []GPUProc `json:"procs,omitempty"`
 }
 
 type GPUProc struct {
@@ -226,17 +226,28 @@ type GPUProc struct {
 }
 
 type IPMI struct {
-	TS         int64     `json:"ts"`
-	Available  bool      `json:"available"`
-	Error      string    `json:"error,omitempty"` // last error when degraded
-	PowerWatts float64   `json:"powerWatts"`
-	Sensors    []Sensor  `json:"sensors,omitempty"`
-	SEL        []SELEntry `json:"sel,omitempty"`
+	TS             int64        `json:"ts"`
+	Available      bool         `json:"available"`
+	Error          string       `json:"error,omitempty"` // last error when degraded
+	PowerWatts     float64      `json:"powerWatts"`
+	PowerAvailable bool         `json:"powerAvailable,omitempty"`
+	PowerSource    string       `json:"powerSource,omitempty"`
+	PowerTS        int64        `json:"powerTS,omitempty"`
+	PowerInputs    []PowerInput `json:"powerInputs,omitempty"`
+	PowerError     string       `json:"powerError,omitempty"`
+	Sensors        []Sensor     `json:"sensors,omitempty"`
+	SEL            []SELEntry   `json:"sel,omitempty"`
+}
+
+// PowerInput is a measured PSU AC input, never its DC output or rated capacity.
+type PowerInput struct {
+	Name  string  `json:"name"`
+	Watts float64 `json:"watts"`
 }
 
 type Sensor struct {
 	Name     string  `json:"name"`
-	Value    string  `json:"value"`          // raw value as printed by ipmitool
+	Value    string  `json:"value"`            // raw value as printed by ipmitool
 	ValueF   float64 `json:"valueF,omitempty"` // numeric value if parseable
 	HasValue bool    `json:"hasValue"`
 	Unit     string  `json:"unit"`
@@ -244,9 +255,9 @@ type Sensor struct {
 }
 
 type SELEntry struct {
-	ID   int    `json:"id"`
-	Date string `json:"date"`
-	Time string `json:"time"`
+	ID    int    `json:"id"`
+	Date  string `json:"date"`
+	Time  string `json:"time"`
 	Event string `json:"event"`
 }
 
@@ -294,9 +305,9 @@ type BrowserInitMsg struct {
 }
 
 type BrowserServerMsg struct {
-	Type   string   `json:"type"` // "snapshot" | "join"
-	Server string   `json:"server"`
-	Data   *Snapshot `json:"data,omitempty"`
+	Type   string      `json:"type"` // "snapshot" | "join"
+	Server string      `json:"server"`
+	Data   *Snapshot   `json:"data,omitempty"`
 	Info   *ServerInfo `json:"info,omitempty"`
 }
 
