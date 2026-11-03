@@ -22,7 +22,7 @@ import (
 )
 
 // Version is the agent build version.
-const Version = "3.0.0"
+const Version = "3.0.1"
 
 // GPUConfig controls the NVIDIA collector.
 type GPUConfig struct {
@@ -33,6 +33,7 @@ type GPUConfig struct {
 
 // IPMIConfig controls the local BMC collector.
 type IPMIConfig struct {
+	ASUSPower *collect.ASUSPowerConfig    `json:"asusPower,omitempty"`
 	Redfish   *collect.RedfishPowerConfig `json:"redfish,omitempty"`
 	Enable    bool                        `json:"enable"`
 	Path      string                      `json:"path"`
@@ -104,7 +105,11 @@ func New(cfg Config) *Agent {
 	}
 	if cfg.IPMI.Enable {
 		a.ipmi = collect.NewIPMICollector(cfg.IPMI.Path, cfg.IPMI.SensorSec, cfg.IPMI.SELSec)
-		if cfg.IPMI.Redfish != nil {
+		if cfg.IPMI.ASUSPower != nil {
+			if err := a.ipmi.SetASUSPower(*cfg.IPMI.ASUSPower); err != nil {
+				log.Printf("agent: ASUS power config: %v", err)
+			}
+		} else if cfg.IPMI.Redfish != nil {
 			if err := a.ipmi.SetRedfishPower(*cfg.IPMI.Redfish); err != nil {
 				log.Printf("agent: Redfish power config: %v", err)
 			}

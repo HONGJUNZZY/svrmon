@@ -10,7 +10,7 @@
 
 ## 整机功耗取值
 
-1. 配置 Redfish 时，汇总 `PowerSupplies[].PowerInputWatts`，同时上报各路输入值。
+1. 配置 `asusPower` 时，读取 ASUS BMC 实时 PSU 接口的 `ACPIN`，逐路求和；否则配置 Redfish 时，汇总 `PowerSupplies[].PowerInputWatts`，同时上报各路输入值。
 2. 若标准 IPMI 中存在完整的 PSU/CRPS 输入功率传感器，则对各路输入求和，同一路电源的别名不会重复累计。
 3. 明确的整机功耗传感器，或 `ipmitool dcmi power reading` 的 `Instantaneous power reading` 可作为回退来源。
 4. 不使用输出功率、额定容量、CPU/GPU 功耗或任意瓦特传感器的最大值充当整机功耗。不完整的输入数据不以部分电源之和冒充总量。
@@ -41,6 +41,36 @@ AC 输入包括电源转换损耗，因此会高于电源 DC 输出之和。页�
 URL 路径取决于 BMC 实际提供的 Chassis 资源。该功能仅发送 HTTPS GET 请求，不修改电源或 BMC 设置；建议使用具备读取权限的专用账号。配置含凭据，应保持文件权限 600。
 
 未填写证书指纹时使用系统 CA 验证。自签名证书可配置叶证书的 SHA-256 指纹，连接只信任完全匹配的证书，不是无条件跳过验证。BMC 证书更新后需同步指纹，否则会报告读取失败，并明确标记回退功耗来源。
+
+## ASUS 固件的 Redfish 输入功耗冻结
+
+部分 ASUS BMC（实测 Z13PE-D16 Series）会不断更新 Redfish `PowerControl.PowerConsumedWatts`，但 `PowerSupplies[].PowerInputWatts` 始终停留在旧值。HTTP 成功、采样时间更新或 ETag 不变均不能证明逐电源读数实时有效。部署时应跨多个采样周期对照原始输入值，不能只验证一次求和。
+
+这类设备可将 `ipmi.redfish` 改为以下配置：
+
+```json
+{
+  "ipmi": {
+    "enable": true,
+    "path": "ipmitool",
+    "sensorSec": 30,
+    "selSec": 60,
+    "asusPower": {
+      "url": "https://bmc.example",
+      "username": "monitor",
+      "password": "由管理员填入BMC账号凭据",
+      "certificateSHA256": "自签名BMC证书的64位SHA256指纹",
+      "expectedSupplies": 2
+    }
+  }
+}
+```
+
+`url` 仅填写 HTTPS 地址，不含 API 路径。Agent 登录 `/api/session` 后复用会话，通过 GET `/api/host_inventory/host_interface_power_supp` 读取实时 AC 输入，过期时续登；不修改电源设置。`expectedSupplies` 为应返回的电源槽位数（包含明确标记为缺席的槽位），用于发现整路数据缺失。
+
+若该接口出现缺失/非法值，或 AC 输入显著低于对应的 DC 输出，则丢弃本次整组读数，回退本地 IPMI/DCMI，并上报原因与实际来源；正常的零输入/零输出仍有效。`asusPower` 优先于 `redfish`，失败后不会再读已知冻结的 Redfish PSU 字段。不要将 DCMI 整机功耗误标为已读取的逐路 CRPS 输入。
+
+旧版采集的恒定历史无法还原为真实功耗，升级不会改写既有历史。
 
 ## 验证与升级
 

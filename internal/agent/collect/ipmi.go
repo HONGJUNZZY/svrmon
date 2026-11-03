@@ -33,6 +33,7 @@ type IPMICollector struct {
 	powerAt        time.Time
 	powerError     string
 	redfish        *redfishPower
+	asus           *asusPower
 	sensorAt       time.Time
 	sel            []model.SELEntry
 	selAt          time.Time
@@ -206,11 +207,30 @@ func (c *IPMICollector) SetRedfishPower(cfg RedfishPowerConfig) error {
 	return nil
 }
 
+// SetASUSPower selects ASUS live PSU inputs instead of potentially frozen
+// Redfish PSU inventory. Failures fall back to local sensors / DCMI only.
+func (c *IPMICollector) SetASUSPower(cfg ASUSPowerConfig) error {
+	a, err := newASUSPower(cfg)
+	if err != nil {
+		return err
+	}
+	c.asus = a
+	return nil
+}
+
 func (c *IPMICollector) refreshPowerLocked(ctx context.Context) {
 	c.power = powerReading{}
 	c.powerAvailable = false
 	c.powerError = ""
-	if c.redfish != nil {
+	if c.asus != nil {
+		reading, err := c.asus.read(ctx)
+		if err == nil {
+			c.power = reading
+			c.powerAvailable = true
+			return
+		}
+		c.powerError = err.Error()
+	} else if c.redfish != nil {
 		reading, err := c.redfish.read(ctx)
 		if err == nil {
 			c.power = reading

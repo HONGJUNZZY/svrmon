@@ -10,6 +10,7 @@ test('known zero watts is distinct from unavailable power and old agents remain 
 })
 
 test('PSU AC input and DCMI remain visibly distinct sources', () => {
+  assert.match(powerSourceLabel({ powerSource: 'asus_psu_input' }), /输入功率合计.*ASUS BMC 实时/)
   assert.match(powerSourceLabel({ powerSource: 'redfish_psu_input' }), /输入功率合计.*Redfish/)
   assert.match(powerSourceLabel({ powerSource: 'dcmi' }), /DCMI/)
   assert.match(powerSourceLabel({ powerWatts: 334 }), /来源未标记/)

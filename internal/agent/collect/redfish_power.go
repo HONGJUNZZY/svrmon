@@ -37,12 +37,20 @@ func newRedfishPower(cfg RedfishPowerConfig) (*redfishPower, error) {
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
 		return nil, fmt.Errorf("Redfish power URL must use HTTPS without embedded credentials")
 	}
+	client, err := newBMCHTTPClient(cfg.CertificateSHA256)
+	if err != nil {
+		return nil, err
+	}
+	return &redfishPower{cfg: cfg, client: client}, nil
+}
+
+func newBMCHTTPClient(certificateSHA256 string) (*http.Client, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
-	if cfg.CertificateSHA256 != "" {
-		pin, err := hex.DecodeString(strings.ReplaceAll(cfg.CertificateSHA256, ":", ""))
+	if certificateSHA256 != "" {
+		pin, err := hex.DecodeString(strings.ReplaceAll(certificateSHA256, ":", ""))
 		if err != nil || len(pin) != sha256.Size {
-			return nil, fmt.Errorf("invalid Redfish certificate SHA-256 fingerprint")
+			return nil, fmt.Errorf("invalid BMC certificate SHA-256 fingerprint")
 		}
 		transport.TLSClientConfig.InsecureSkipVerify = true // exact leaf pin verified below
 		transport.TLSClientConfig.VerifyConnection = func(state tls.ConnectionState) error {
@@ -56,7 +64,7 @@ func newRedfishPower(cfg RedfishPowerConfig) (*redfishPower, error) {
 			return nil
 		}
 	}
-	return &redfishPower{cfg: cfg, client: &http.Client{Transport: transport, Timeout: 4 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return &http.Client{Transport: transport, Timeout: 4 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, nil
 }
 
 func (r *redfishPower) read(ctx context.Context) (powerReading, error) {
@@ -66,6 +74,7 @@ func (r *redfishPower) read(ctx context.Context) (powerReading, error) {
 	}
 	req.SetBasicAuth(r.cfg.Username, r.cfg.Password)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", "no-cache")
 	resp, err := r.client.Do(req)
 	if err != nil {
 		return powerReading{}, fmt.Errorf("Redfish power connection failed")

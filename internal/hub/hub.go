@@ -25,7 +25,7 @@ var upgrader = websocket.Upgrader{
 }
 
 // HubVersion is the hub build version.
-const HubVersion = "3.0.0"
+const HubVersion = "3.0.1"
 
 type agentConn struct {
 	name      string
